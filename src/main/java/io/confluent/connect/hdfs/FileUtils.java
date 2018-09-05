@@ -82,7 +82,8 @@ public class FileUtils {
       long startOffset,
       long endOffset,
       String extension,
-      String zeroPadFormat
+      String zeroPadFormat,
+      int recordCounter
   ) {
     String topic = topicPart.topic();
     int partition = topicPart.partition();
@@ -94,6 +95,8 @@ public class FileUtils {
     sb.append(String.format(zeroPadFormat, startOffset));
     sb.append(HdfsSinkConnectorConstants.COMMMITTED_FILENAME_SEPARATOR);
     sb.append(String.format(zeroPadFormat, endOffset));
+    sb.append(HdfsSinkConnectorConstants.COMMMITTED_FILENAME_SEPARATOR);
+    sb.append(new Integer(recordCounter).toString());
     sb.append(extension);
     String name = sb.toString();
     return fileName(url, topicsDir, directory, name);

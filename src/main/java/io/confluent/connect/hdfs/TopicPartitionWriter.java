@@ -100,6 +100,7 @@ public class TopicPartitionWriter {
   private long offset;
   private final Map<String, Long> startOffsets;
   private final Map<String, Long> offsets;
+  private final Map<String, Long> offsetRecordCounters;
   private final long timeoutMs;
   private long failureTime;
   private final StorageSchemaCompatibility compatibility;
@@ -205,6 +206,7 @@ public class TopicPartitionWriter {
     appended = new HashSet<>();
     startOffsets = new HashMap<>();
     offsets = new HashMap<>();
+    offsetRecordCounters = new HashMap<>();
     state = State.RECOVERY_STARTED;
     failureTime = -1L;
     offset = -1L;
@@ -646,6 +648,11 @@ public class TopicPartitionWriter {
       startOffsets.put(encodedPartition, record.kafkaOffset());
     }
     offsets.put(encodedPartition, record.kafkaOffset());
+    Long recordsInFile = offsetRecordCounters.get(encodedPartition);
+    if (recordsInFile == null) {
+      recordsInFile = new Long(0);
+    }
+    offsetRecordCounters.put(encodedPartition, recordsInFile + 1);
     recordCounter++;
   }
 
@@ -682,7 +689,8 @@ public class TopicPartitionWriter {
         startOffset,
         endOffset,
         extension,
-        zeroPadOffsetFormat
+        zeroPadOffsetFormat,
+        recordCounter
     );
     wal.append(tempFile, committedFile);
     appended.add(tempFile);
@@ -719,6 +727,7 @@ public class TopicPartitionWriter {
     if (!startOffsets.containsKey(encodedPartition)) {
       return;
     }
+    Long recordsInFile = offsetRecordCounters.get(encodedPartition);
     long startOffset = startOffsets.get(encodedPartition);
     long endOffset = offsets.get(encodedPartition);
     String tempFile = tempFiles.get(encodedPartition);
@@ -731,7 +740,8 @@ public class TopicPartitionWriter {
         startOffset,
         endOffset,
         extension,
-        zeroPadOffsetFormat
+        zeroPadOffsetFormat,
+        recordsInFile.intValue()
     );
 
     String directoryName = FileUtils.directoryName(url, topicsDir, directory);
@@ -741,6 +751,7 @@ public class TopicPartitionWriter {
     storage.commit(tempFile, committedFile);
     startOffsets.remove(encodedPartition);
     offsets.remove(encodedPartition);
+    offsetRecordCounters.remove(encodedPartition);
     offset = offset + recordCounter;
     recordCounter = 0;
     log.info("Committed {} for {}", committedFile, tp);
